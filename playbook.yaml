@@ -6,7 +6,7 @@
   hosts: 127.0.0.1
 
   tasks:
-  - name: Initial setup
+  - name: Initial Apt setup
     block:
       - apt:
           upgrade: dist
@@ -29,10 +29,7 @@
       name: "{{ item }}"
       state: present
       update_cache: 'yes'
-    become: true
     with_items:
-      - unifi
-      - etckeeper
       - dnsmasq
       - traceroute
       - vim
@@ -85,6 +82,7 @@
       block: |
         # Commandline args for cloudflared
         CLOUDFLARED_OPTS=--port 5053 --upstream https://1.1.1.1/dns-query
+
   - name:
     file:
       path: /usr/local/bin/cloudflared
@@ -104,6 +102,5 @@
       state: started
 
   - name: Remove dependencies that are no longer required
-    become: true
     apt:
       autoremove: yes
