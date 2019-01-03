@@ -3,7 +3,7 @@
 set -e
 
 sudo apt update
-sudo apt install git make
+sudo apt install git make python-setuptools gcc python-dev libffi-dev libssl-dev python-packaging
 #sudo apt install git make python-setuptools gcc python-dev libffi-dev libssl-dev python-packaging
 
 git clone git://github.com/ansible/ansible.git
