@@ -1,0 +1,109 @@
+---
+
+- name: Google Compute Engine Pi-Hole PiVPN setup
+  become: yes
+  connection: local
+  hosts: 127.0.0.1
+
+  tasks:
+  - name: Initial setup
+    block:
+      - apt:
+          upgrade: dist
+          update_cache: yes
+
+      - apt:
+          name: aptitude
+          state: present
+
+      - apt:
+          name: apt-transport-https
+          state: present
+
+      - apt:
+          name: ca-certificates
+          state: present
+
+  - name: Install base packages
+    apt:
+      name: {{item}}
+      state: present
+      update_cache: 'yes'
+    become: true
+    with_items:
+      - unifi
+      - etckeeper
+      - dnsmasq
+      - traceroute
+      - vim
+      - git
+
+  - name: Download CloudflareD
+    get_url:
+      url: https://bin.equinox.io/c/VdrWdbjqyF/cloudflared-stable-linux-amd64.deb
+      dest: /tmp/
+
+  - name: Install CloudflareD
+    apt:
+      deb: /tmp/cloudflared-stable-linux-amd64.deb
+
+  - name: Clean CloudflareD tmpfile
+    file:
+      name: /tmp/cloudflared-stable-linux-amd64.deb
+      state: absent
+
+  - name: CloudflareD user config
+    user:
+      name: cloudflared
+      shell: /usr/sbin/nologin
+      system: yes
+      create_home: no
+
+  - git:
+      repo: https://github.com/pi-hole/pi-hole.git
+      dest: pi-hole
+
+  - name: Install Pi-Hole
+    script: /bin/bash "pi-hole/automated install/basic-install.sh" --unattended
+
+  - name: Touch empty pihole-FTL.conf
+    file: path=/etc/pihole/pihole-FTL.conf state=touch          
+
+  - name:
+    lineinfile:
+      create: yes
+      path: /etc/dnsmasq.d/50-cloudflared.conf
+      line: 'server=127.0.0.1#5053'
+
+  - name: Establish cloudflared config
+    blockinfile:
+      create: yes
+      path: /etc/default/cloudflared
+      owner: cloudflared
+      group: cloudflared
+      mode: 0444
+      block: |
+        # Commandline args for cloudflared
+        CLOUDFLARED_OPTS=--port 5053 --upstream https://1.1.1.1/dns-query
+  - name:
+    file:
+      path: /usr/local/bin/cloudflared
+      owner: cloudflared
+      group: cloudflared
+      mode: 0744
+
+  - name: Write cloudflared systemd service
+    copy:
+      src: cloudflared.service
+      dest: /lib/systemd/system/cloudflared.service
+
+  - name: Register and start the cloudflared service
+    systemd:
+      name: cloudflared
+      enabled: yes
+      state: started
+
+  - name: Remove dependencies that are no longer required
+    become: true
+    apt:
+      autoremove: yes
